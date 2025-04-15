@@ -170,6 +170,9 @@
         async function getCurrentIP() {
             try {
                 const response = await fetch('https://api.ipify.org?format=json');
+                if (!response.ok) {
+                    throw new Error('Не удалось получить IP-адрес');
+                }
                 const data = await response.json();
                 return data.ip;
             } catch (error) {
@@ -199,6 +202,11 @@
             const currentIP = await getCurrentIP();
             
             try {
+                // Проверяем поддержку WebRTC
+                if (!window.RTCPeerConnection) {
+                    throw new Error('Ваш браузер не поддерживает WebRTC');
+                }
+
                 const pc = new RTCPeerConnection({
                     iceServers: [
                         { urls: "stun:stun.l.google.com:19302" }
@@ -224,7 +232,7 @@
                     if (pc.iceConnectionState === 'failed') {
                         const errorDiv = document.createElement('div');
                         errorDiv.className = 'status';
-                        errorDiv.innerHTML = 'Ошибка соединения WebRTC. Попробуйте позже.';
+                        errorDiv.innerHTML = 'Ошибка соединения WebRTC. Проверьте подключение к интернету.';
                         resultDiv.appendChild(errorDiv);
                     }
                 };
@@ -241,14 +249,25 @@
                 errorDiv.className = 'status';
                 
                 if (error.name === 'SecurityError') {
-                    errorDiv.innerHTML = 'Ошибка безопасности. Проверьте настройки браузера.';
+                    errorDiv.innerHTML = 'Ошибка безопасности. Проверьте настройки браузера и разрешите доступ к WebRTC.';
                 } else if (error.name === 'NotAllowedError') {
                     errorDiv.innerHTML = 'Доступ к WebRTC запрещен. Разрешите доступ в настройках браузера.';
+                } else if (error.message.includes('не поддерживает WebRTC')) {
+                    errorDiv.innerHTML = 'Ваш браузер не поддерживает WebRTC. Попробуйте использовать другой браузер.';
                 } else {
-                    errorDiv.innerHTML = `Ошибка при проверке: ${error.message}`;
+                    errorDiv.innerHTML = `
+                        <p>Ошибка при проверке: ${error.message}</p>
+                        <p>Возможные причины:</p>
+                        <ul>
+                            <li>Проблемы с подключением к интернету</li>
+                            <li>Блокировка WebRTC в настройках браузера</li>
+                            <li>Ограничения в вашей сети</li>
+                        </ul>
+                    `;
                 }
                 
                 resultDiv.appendChild(errorDiv);
+                throw error;
             }
             
             return Array.from(ips);
@@ -260,6 +279,19 @@
             resultDiv.innerHTML = '<div class="loading">Проверка запущена...</div>';
             
             try {
+                // Проверяем подключение к интернету
+                try {
+                    await fetch('https://www.google.com', { mode: 'no-cors' });
+                } catch {
+                    resultDiv.innerHTML = `
+                        <div class="status">
+                            <p>⚠️ Нет подключения к интернету</p>
+                            <p>Проверьте ваше интернет-соединение и попробуйте снова.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
                 const ips = await detectLeaks();
                 saveResults(ips);
                 
@@ -313,7 +345,17 @@
                 };
                 resultDiv.appendChild(clearButton);
             } catch (error) {
-                resultDiv.innerHTML = `<div class="status">Ошибка при выполнении проверки: ${error.message}</div>`;
+                resultDiv.innerHTML = `
+                    <div class="status">
+                        <p>⚠️ Ошибка при выполнении проверки</p>
+                        <p>Попробуйте:</p>
+                        <ul>
+                            <li>Проверить подключение к интернету</li>
+                            <li>Разрешить WebRTC в настройках браузера</li>
+                            <li>Обновить страницу и попробовать снова</li>
+                        </ul>
+                    </div>
+                `;
             }
         }
     </script>

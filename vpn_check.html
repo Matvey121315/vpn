@@ -125,6 +125,7 @@
             padding: 15px;
             border-radius: 8px;
             text-align: center;
+            font-size: 1.2em;
         }
 
         .status-safe {
@@ -138,6 +139,18 @@
             color: #e65100;
             border: 1px solid #e65100;
         }
+
+        .ip-list {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+        }
+
+        .ip-list p {
+            margin: 5px 0;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -147,10 +160,9 @@
         <div id="result"></div>
         <div class="info-box">
             <h3>Как понять результаты проверки:</h3>
-            <p>✅ <strong>Всё хорошо</strong> - если вы видите только IP вашего VPN или локальный IP сети</p>
-            <p>⚠️ <strong>Есть утечка</strong> - если вы видите свой реальный IP (он будет отмечен как "Обнаружена утечка!")</p>
-            <p>ℹ️ <strong>Локальный IP</strong> - это IP вашей домашней сети, он не является утечкой</p>
-            <p>ℹ️ <strong>Публичный IP</strong> - это IP вашего VPN или интернет-провайдера</p>
+            <p>✅ <strong>Всё хорошо</strong> - если вы видите сообщение "Утечек не обнаружено"</p>
+            <p>⚠️ <strong>Есть утечка</strong> - если вы видите сообщение "Обнаружена утечка!"</p>
+            <p>ℹ️ <strong>Что это значит?</strong> - если есть утечка, значит ваш реальный IP-адрес может быть виден в сети</p>
         </div>
     </div>
     <script>
@@ -202,22 +214,6 @@
                         
                         if (match && !ips.has(match[1])) {
                             ips.add(match[1]);
-                            const status = document.createElement('div');
-                            status.className = 'status';
-                            
-                            const ip = match[1];
-                            let message = '';
-                            
-                            if (currentIP && ip === currentIP) {
-                                message = `⚠️ Обнаружена утечка! Ваш реальный IP: <span class="leak">${ip}</span>`;
-                            } else if (ice.candidate.candidate.includes('typ host')) {
-                                message = `Локальный IP вашей сети: <span class="leak">${ip}</span>`;
-                            } else {
-                                message = `Публичный IP: <span class="leak">${ip}</span>`;
-                            }
-                            
-                            status.innerHTML = message;
-                            resultDiv.appendChild(status);
                         }
                     } catch (error) {
                         console.error('Ошибка при обработке ICE кандидата:', error);
@@ -273,19 +269,30 @@
                 
                 if (ips.length === 0) {
                     statusDiv.className += ' status-safe';
-                    statusDiv.innerHTML = '✅ Проверка завершена. Утечек не обнаружено!';
+                    statusDiv.innerHTML = '✅ Утечек не обнаружено!';
                 } else {
                     const hasLeak = Array.from(ips).some(ip => ip === currentIP);
                     if (hasLeak) {
                         statusDiv.className += ' status-warning';
-                        statusDiv.innerHTML = '⚠️ Обнаружена утечка! Ваш реальный IP виден в сети.';
+                        statusDiv.innerHTML = '⚠️ Обнаружена утечка!';
                     } else {
                         statusDiv.className += ' status-safe';
-                        statusDiv.innerHTML = '✅ Проверка завершена. Утечек не обнаружено!';
+                        statusDiv.innerHTML = '✅ Утечек не обнаружено!';
                     }
                 }
                 
                 resultDiv.appendChild(statusDiv);
+                
+                // Показываем найденные IP-адреса
+                if (ips.length > 0) {
+                    const ipList = document.createElement('div');
+                    ipList.className = 'ip-list';
+                    ipList.innerHTML = '<p>Найденные IP-адреса:</p>';
+                    ips.forEach(ip => {
+                        ipList.innerHTML += `<p>${ip}</p>`;
+                    });
+                    resultDiv.appendChild(ipList);
+                }
                 
                 const recommendations = document.createElement('div');
                 recommendations.className = 'status';

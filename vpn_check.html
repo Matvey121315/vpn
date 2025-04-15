@@ -109,25 +109,49 @@
         <div id="result"></div>
     </div>
     <script>
+        // Функция для получения текущего IP
+        async function getCurrentIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch (error) {
+                console.error('Ошибка при получении IP:', error);
+                return null;
+            }
+        }
+
+        // Функция для сохранения результатов
+        function saveResults(ips) {
+            try {
+                const history = JSON.parse(localStorage.getItem('leakHistory') || '[]');
+                history.push({
+                    date: new Date().toISOString(),
+                    ips
+                });
+                localStorage.setItem('leakHistory', JSON.stringify(history));
+            } catch (error) {
+                console.error('Ошибка при сохранении результатов:', error);
+            }
+        }
+
         // Функция для проверки утечек
         async function detectLeaks() {
             const resultDiv = document.getElementById('result');
             let ips = new Set();
+            const currentIP = await getCurrentIP();
             
             try {
-                // Создаем WebRTC соединение с одним надежным STUN-сервером
                 const pc = new RTCPeerConnection({
                     iceServers: [
                         { urls: "stun:stun.l.google.com:19302" }
                     ]
                 });
 
-                // Обработчик ICE кандидатов
                 pc.onicecandidate = (ice) => {
                     if (!ice.candidate) return;
                     
                     try {
-                        // Извлекаем IP из ICE кандидата
                         const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
                         const match = ice.candidate.candidate.match(ipRegex);
                         
@@ -136,13 +160,18 @@
                             const status = document.createElement('div');
                             status.className = 'status';
                             
-                            // Определяем тип IP
-                            if (ice.candidate.candidate.includes('typ host')) {
-                                status.innerHTML = `Обнаружен локальный IP: <span class="leak">${match[1]}</span>`;
+                            const ip = match[1];
+                            let message = '';
+                            
+                            if (currentIP && ip === currentIP) {
+                                message = `⚠️ Обнаружена утечка! Ваш реальный IP: <span class="leak">${ip}</span>`;
+                            } else if (ice.candidate.candidate.includes('typ host')) {
+                                message = `Локальный IP вашей сети: <span class="leak">${ip}</span>`;
                             } else {
-                                status.innerHTML = `Обнаружен публичный IP: <span class="leak">${match[1]}</span>`;
+                                message = `Публичный IP: <span class="leak">${ip}</span>`;
                             }
                             
+                            status.innerHTML = message;
                             resultDiv.appendChild(status);
                         }
                     } catch (error) {
@@ -150,7 +179,6 @@
                     }
                 };
 
-                // Обработчик ошибок
                 pc.oniceconnectionstatechange = () => {
                     if (pc.iceConnectionState === 'failed') {
                         const errorDiv = document.createElement('div');
@@ -160,23 +188,11 @@
                     }
                 };
 
-                // Создаем канал данных
                 const dc = pc.createDataChannel("check");
-                dc.onopen = () => {
-                    console.log('Data channel открыт');
-                };
-                dc.onclose = () => {
-                    console.log('Data channel закрыт');
-                };
-
-                // Создаем и устанавливаем локальное описание
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 
-                // Ждем 10 секунд для сбора информации
                 await new Promise(resolve => setTimeout(resolve, 10000));
-                
-                // Закрываем соединение
                 pc.close();
                 
             } catch (error) {
@@ -197,46 +213,28 @@
             return Array.from(ips);
         }
 
-        // Функция для сохранения результатов
-        function saveResults(ips) {
-            try {
-                const history = JSON.parse(localStorage.getItem('leakHistory') || '[]');
-                history.push({
-                    date: new Date().toISOString(),
-                    ips
-                });
-                localStorage.setItem('leakHistory', JSON.stringify(history));
-            } catch (error) {
-                console.error('Ошибка при сохранении результатов:', error);
-            }
-        }
-
         // Основная функция запуска проверок
         async function runTests() {
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = '<div class="loading">Проверка запущена...</div>';
             
             try {
-                // Проверяем утечки
                 const ips = await detectLeaks();
-                
-                // Сохраняем результаты
                 saveResults(ips);
                 
-                // Добавляем рекомендации
                 const recommendations = document.createElement('div');
                 recommendations.className = 'status';
                 recommendations.innerHTML = `
-                    <h3>Рекомендации:</h3>
+                    <h3>Что делать, если обнаружена утечка:</h3>
                     <ul>
-                        <li>Используйте VPN с защитой от WebRTC утечек</li>
-                        <li>Включите DNS-over-HTTPS в настройках браузера</li>
-                        <li>Отключите WebRTC в настройках браузера, если это возможно</li>
+                        <li>1. Включите VPN с защитой от WebRTC утечек</li>
+                        <li>2. В настройках браузера отключите WebRTC</li>
+                        <li>3. Включите DNS-over-HTTPS</li>
                     </ul>
+                    <p>⚠️ Если вы видите свой реальный IP - это утечка!</p>
                 `;
                 resultDiv.appendChild(recommendations);
                 
-                // Добавляем кнопку для очистки результатов
                 const clearButton = document.createElement('button');
                 clearButton.textContent = 'Очистить результаты';
                 clearButton.onclick = () => {

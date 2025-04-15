@@ -199,7 +199,6 @@
         async function detectLeaks() {
             const resultDiv = document.getElementById('result');
             let ips = new Set();
-            const currentIP = await getCurrentIP();
             
             try {
                 // Проверяем поддержку WebRTC
@@ -287,6 +286,18 @@
                         <div class="status">
                             <p>⚠️ Нет подключения к интернету</p>
                             <p>Проверьте ваше интернет-соединение и попробуйте снова.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Получаем текущий IP
+                const currentIP = await getCurrentIP();
+                if (!currentIP) {
+                    resultDiv.innerHTML = `
+                        <div class="status">
+                            <p>⚠️ Не удалось получить ваш IP-адрес</p>
+                            <p>Проверьте подключение к интернету и попробуйте снова.</p>
                         </div>
                     `;
                     return;

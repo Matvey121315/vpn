@@ -199,6 +199,7 @@
         async function detectLeaks() {
             const resultDiv = document.getElementById('result');
             let ips = new Set();
+            let hasLocalIP = false;
             
             try {
                 // Проверяем поддержку WebRTC
@@ -220,7 +221,30 @@
                         const match = ice.candidate.candidate.match(ipRegex);
                         
                         if (match && !ips.has(match[1])) {
-                            ips.add(match[1]);
+                            const ip = match[1];
+                            ips.add(ip);
+                            
+                            // Проверяем, является ли IP локальным
+                            if (ip.startsWith('192.168.') || 
+                                ip.startsWith('10.') || 
+                                ip.startsWith('172.16.') || 
+                                ip.startsWith('172.17.') || 
+                                ip.startsWith('172.18.') || 
+                                ip.startsWith('172.19.') || 
+                                ip.startsWith('172.20.') || 
+                                ip.startsWith('172.21.') || 
+                                ip.startsWith('172.22.') || 
+                                ip.startsWith('172.23.') || 
+                                ip.startsWith('172.24.') || 
+                                ip.startsWith('172.25.') || 
+                                ip.startsWith('172.26.') || 
+                                ip.startsWith('172.27.') || 
+                                ip.startsWith('172.28.') || 
+                                ip.startsWith('172.29.') || 
+                                ip.startsWith('172.30.') || 
+                                ip.startsWith('172.31.')) {
+                                hasLocalIP = true;
+                            }
                         }
                     } catch (error) {
                         console.error('Ошибка при обработке ICE кандидата:', error);
@@ -269,7 +293,7 @@
                 throw error;
             }
             
-            return Array.from(ips);
+            return { ips: Array.from(ips), hasLocalIP };
         }
 
         // Основная функция запуска проверок
@@ -291,19 +315,7 @@
                     return;
                 }
 
-                // Получаем текущий IP
-                const currentIP = await getCurrentIP();
-                if (!currentIP) {
-                    resultDiv.innerHTML = `
-                        <div class="status">
-                            <p>⚠️ Не удалось получить ваш IP-адрес</p>
-                            <p>Проверьте подключение к интернету и попробуйте снова.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const ips = await detectLeaks();
+                const { ips, hasLocalIP } = await detectLeaks();
                 saveResults(ips);
                 
                 // Добавляем статус проверки
@@ -313,15 +325,12 @@
                 if (ips.length === 0) {
                     statusDiv.className += ' status-safe';
                     statusDiv.innerHTML = '✅ Утечек не обнаружено!';
+                } else if (hasLocalIP) {
+                    statusDiv.className += ' status-warning';
+                    statusDiv.innerHTML = '⚠️ Обнаружена утечка!';
                 } else {
-                    const hasLeak = Array.from(ips).some(ip => ip === currentIP);
-                    if (hasLeak) {
-                        statusDiv.className += ' status-warning';
-                        statusDiv.innerHTML = '⚠️ Обнаружена утечка!';
-                    } else {
-                        statusDiv.className += ' status-safe';
-                        statusDiv.innerHTML = '✅ Утечек не обнаружено!';
-                    }
+                    statusDiv.className += ' status-safe';
+                    statusDiv.innerHTML = '✅ Утечек не обнаружено!';
                 }
                 
                 resultDiv.appendChild(statusDiv);
@@ -332,7 +341,25 @@
                     ipList.className = 'ip-list';
                     ipList.innerHTML = '<p>Найденные IP-адреса:</p>';
                     ips.forEach(ip => {
-                        ipList.innerHTML += `<p>${ip}</p>`;
+                        const isLocal = ip.startsWith('192.168.') || 
+                                      ip.startsWith('10.') || 
+                                      ip.startsWith('172.16.') || 
+                                      ip.startsWith('172.17.') || 
+                                      ip.startsWith('172.18.') || 
+                                      ip.startsWith('172.19.') || 
+                                      ip.startsWith('172.20.') || 
+                                      ip.startsWith('172.21.') || 
+                                      ip.startsWith('172.22.') || 
+                                      ip.startsWith('172.23.') || 
+                                      ip.startsWith('172.24.') || 
+                                      ip.startsWith('172.25.') || 
+                                      ip.startsWith('172.26.') || 
+                                      ip.startsWith('172.27.') || 
+                                      ip.startsWith('172.28.') || 
+                                      ip.startsWith('172.29.') || 
+                                      ip.startsWith('172.30.') || 
+                                      ip.startsWith('172.31.');
+                        ipList.innerHTML += `<p>${ip} ${isLocal ? '(локальный IP)' : ''}</p>`;
                     });
                     resultDiv.appendChild(ipList);
                 }
